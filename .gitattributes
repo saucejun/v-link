@@ -1,0 +1,18 @@
+# 默认：让 Git 自动处理文本行尾
+* text=auto
+
+# Linux 脚本必须是 LF
+*.sh text eol=lf
+gradlew text eol=lf
+
+# 文档也建议 LF
+*.md text eol=lf
+*.gradle text eol=lf
+*.java text eol=lf
+*.properties text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows 脚本保持 CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf

@@ -1,0 +1,11 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api 'io.netty:netty-buffer:4.1.108.Final'
+    api 'io.netty:netty-common:4.1.108.Final'
+    api 'io.netty:netty-transport:4.1.108.Final'
+    api 'io.netty:netty-transport-classes-epoll:4.1.108.Final'
+    api 'io.netty:netty-transport-native-unix-common:4.1.108.Final'
+}

@@ -1,0 +1,13 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':common')
+    implementation 'io.netty:netty-codec:4.1.108.Final'
+    implementation 'io.netty:netty-transport-native-epoll:4.1.108.Final:linux-x86_64'
+}
+
+application {
+    mainClass = 'com.vlink.coordinator.CoordinatorMain'
+}
