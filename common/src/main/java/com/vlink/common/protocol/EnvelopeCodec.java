@@ -6,6 +6,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.security.SecureRandom;
 
+// EnvelopeCodec 负责完整封包流程：消息编码、AES-GCM 加密与解密。
+
 public final class EnvelopeCodec {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 

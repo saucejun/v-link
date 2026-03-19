@@ -5,6 +5,8 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// PunchNotify 告知对端公网地址，帮助双方开始直连探测。
+
 public final class PunchNotify implements ControlMessage {
     private final NodeId peerNodeId;
     private final int peerPublicIp;

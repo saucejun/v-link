@@ -5,21 +5,23 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// QueryPeerRequest 用于查询目标 peer 的公网地址信息。
+
 public final class QueryPeerRequest implements ControlMessage {
     private final NodeId requesterId;
-    private final NodeId targetId;
+    private final NodeId targetNodeId;
 
-    public QueryPeerRequest(NodeId requesterId, NodeId targetId) {
+    public QueryPeerRequest(NodeId requesterId, NodeId targetNodeId) {
         this.requesterId = requesterId;
-        this.targetId = targetId;
+        this.targetNodeId = targetNodeId;
     }
 
     public NodeId requesterId() {
         return requesterId;
     }
 
-    public NodeId targetId() {
-        return targetId;
+    public NodeId targetNodeId() {
+        return targetNodeId;
     }
 
     @Override
@@ -30,7 +32,7 @@ public final class QueryPeerRequest implements ControlMessage {
     @Override
     public void encode(ByteBuf out) {
         out.writeBytes(requesterId.toBytes());
-        out.writeBytes(targetId.toBytes());
+        out.writeBytes(targetNodeId.toBytes());
     }
 
     public static QueryPeerRequest decode(ByteBuf in) {
@@ -41,4 +43,3 @@ public final class QueryPeerRequest implements ControlMessage {
         return new QueryPeerRequest(NodeId.fromBytes(requester), NodeId.fromBytes(target));
     }
 }
-

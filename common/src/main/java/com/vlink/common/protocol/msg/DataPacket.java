@@ -5,6 +5,8 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// DataPacket 是数据面帧，承载虚拟 IP 包及 seq/ack/flags。
+
 public final class DataPacket implements ControlMessage {
     public static final byte FLAG_ACK = 0x01;
     public static final byte FLAG_RELAY = 0x02;

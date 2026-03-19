@@ -11,11 +11,13 @@ BIND=${BIND:-0.0.0.0}
 PORT=${PORT:-40000}
 PEER_TIMEOUT_SEC=${PEER_TIMEOUT_SEC:-30}
 CLEANUP_INTERVAL_SEC=${CLEANUP_INTERVAL_SEC:-5}
+VIP_POOL_START=${VIP_POOL_START:-10.10.0.2}
+VIP_POOL_END=${VIP_POOL_END:-10.10.255.254}
 JAVA_CMD=${JAVA_CMD:-java}
 
 $JAVA_CMD -version >/dev/null
 
-ARGS="--bind ${BIND} --port ${PORT} --psk ${PSK} --peerTimeoutSec ${PEER_TIMEOUT_SEC} --cleanupIntervalSec ${CLEANUP_INTERVAL_SEC}"
+ARGS="--bind ${BIND} --port ${PORT} --psk ${PSK} --peerTimeoutSec ${PEER_TIMEOUT_SEC} --cleanupIntervalSec ${CLEANUP_INTERVAL_SEC} --vipPoolStart ${VIP_POOL_START} --vipPoolEnd ${VIP_POOL_END}"
 
 if [[ -x ./gradlew ]]; then
   ./gradlew :coordinator:run --args="$ARGS"

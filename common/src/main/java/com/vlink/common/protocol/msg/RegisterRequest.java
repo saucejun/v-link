@@ -5,23 +5,19 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// RegisterRequest 是边缘节点向协调节点发起注册的请求消息。
+
 public final class RegisterRequest implements ControlMessage {
     private final NodeId nodeId;
-    private final int virtualIp;
     private final int listenPort;
 
-    public RegisterRequest(NodeId nodeId, int virtualIp, int listenPort) {
+    public RegisterRequest(NodeId nodeId, int listenPort) {
         this.nodeId = nodeId;
-        this.virtualIp = virtualIp;
         this.listenPort = listenPort;
     }
 
     public NodeId nodeId() {
         return nodeId;
-    }
-
-    public int virtualIp() {
-        return virtualIp;
     }
 
     public int listenPort() {
@@ -36,7 +32,6 @@ public final class RegisterRequest implements ControlMessage {
     @Override
     public void encode(ByteBuf out) {
         out.writeBytes(nodeId.toBytes());
-        out.writeInt(virtualIp);
         out.writeShort(listenPort);
     }
 
@@ -44,9 +39,7 @@ public final class RegisterRequest implements ControlMessage {
         byte[] nodeIdBytes = new byte[16];
         in.readBytes(nodeIdBytes);
         NodeId nodeId = NodeId.fromBytes(nodeIdBytes);
-        int virtualIp = in.readInt();
         int listenPort = in.readUnsignedShort();
-        return new RegisterRequest(nodeId, virtualIp, listenPort);
+        return new RegisterRequest(nodeId, listenPort);
     }
 }
-

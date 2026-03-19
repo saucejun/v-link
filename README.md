@@ -13,6 +13,8 @@ Lightweight P2P virtual LAN with coordinator + edge nodes.
 - Linux real TUN (`/dev/net/tun` via JNA)
 - UDP direct probe + fallback relay
 - stop-and-wait reliability (`seq/ack`, retry, dedup)
+- Coordinator auto-assigns unique virtual IP on register
+- Peer control-plane requests use `targetNodeId` routing
 
 ## Docs
 - `docs/architecture.md`

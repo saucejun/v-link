@@ -5,21 +5,23 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// PunchRequest 请求协调节点通知双方进行 NAT 打洞。
+
 public final class PunchRequest implements ControlMessage {
     private final NodeId requesterId;
-    private final NodeId targetId;
+    private final NodeId targetNodeId;
 
-    public PunchRequest(NodeId requesterId, NodeId targetId) {
+    public PunchRequest(NodeId requesterId, NodeId targetNodeId) {
         this.requesterId = requesterId;
-        this.targetId = targetId;
+        this.targetNodeId = targetNodeId;
     }
 
     public NodeId requesterId() {
         return requesterId;
     }
 
-    public NodeId targetId() {
-        return targetId;
+    public NodeId targetNodeId() {
+        return targetNodeId;
     }
 
     @Override
@@ -30,7 +32,7 @@ public final class PunchRequest implements ControlMessage {
     @Override
     public void encode(ByteBuf out) {
         out.writeBytes(requesterId.toBytes());
-        out.writeBytes(targetId.toBytes());
+        out.writeBytes(targetNodeId.toBytes());
     }
 
     public static PunchRequest decode(ByteBuf in) {

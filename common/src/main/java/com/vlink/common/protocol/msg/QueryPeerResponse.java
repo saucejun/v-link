@@ -5,32 +5,36 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// QueryPeerResponse 返回目标 peer 的公网端点和状态。
+
 public final class QueryPeerResponse implements ControlMessage {
     public static final byte STATUS_OK = 0;
     public static final byte STATUS_NOT_FOUND = 1;
+    public static final byte STATUS_OFFLINE = 2;
+    public static final byte STATUS_MAPPING_INVALID = 3;
 
     private final byte status;
-    private final NodeId targetId;
+    private final NodeId targetNodeId;
     private final int publicIp;
     private final int publicPort;
-    private final int virtualIp;
+    private final int targetVirtualIp;
     private final long lastSeenEpochSec;
     private final boolean relayRequired;
 
     public QueryPeerResponse(
         byte status,
-        NodeId targetId,
+        NodeId targetNodeId,
         int publicIp,
         int publicPort,
-        int virtualIp,
+        int targetVirtualIp,
         long lastSeenEpochSec,
         boolean relayRequired
     ) {
         this.status = status;
-        this.targetId = targetId;
+        this.targetNodeId = targetNodeId;
         this.publicIp = publicIp;
         this.publicPort = publicPort;
-        this.virtualIp = virtualIp;
+        this.targetVirtualIp = targetVirtualIp;
         this.lastSeenEpochSec = lastSeenEpochSec;
         this.relayRequired = relayRequired;
     }
@@ -39,8 +43,8 @@ public final class QueryPeerResponse implements ControlMessage {
         return status;
     }
 
-    public NodeId targetId() {
-        return targetId;
+    public NodeId targetNodeId() {
+        return targetNodeId;
     }
 
     public int publicIp() {
@@ -51,8 +55,8 @@ public final class QueryPeerResponse implements ControlMessage {
         return publicPort;
     }
 
-    public int virtualIp() {
-        return virtualIp;
+    public int targetVirtualIp() {
+        return targetVirtualIp;
     }
 
     public long lastSeenEpochSec() {
@@ -71,10 +75,10 @@ public final class QueryPeerResponse implements ControlMessage {
     @Override
     public void encode(ByteBuf out) {
         out.writeByte(status);
-        out.writeBytes(targetId.toBytes());
+        out.writeBytes(targetNodeId.toBytes());
         out.writeInt(publicIp);
         out.writeShort(publicPort);
-        out.writeInt(virtualIp);
+        out.writeInt(targetVirtualIp);
         out.writeInt((int) lastSeenEpochSec);
         out.writeByte(relayRequired ? 1 : 0);
     }
@@ -85,7 +89,7 @@ public final class QueryPeerResponse implements ControlMessage {
         in.readBytes(targetIdBytes);
         int publicIp = in.readInt();
         int publicPort = in.readUnsignedShort();
-        int virtualIp = in.readInt();
+        int targetVirtualIp = in.readInt();
         long lastSeenEpochSec = in.readUnsignedInt();
         boolean relayRequired = in.readByte() != 0;
         return new QueryPeerResponse(
@@ -93,10 +97,9 @@ public final class QueryPeerResponse implements ControlMessage {
             NodeId.fromBytes(targetIdBytes),
             publicIp,
             publicPort,
-            virtualIp,
+            targetVirtualIp,
             lastSeenEpochSec,
             relayRequired
         );
     }
 }
-

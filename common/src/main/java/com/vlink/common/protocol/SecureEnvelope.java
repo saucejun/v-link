@@ -4,6 +4,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.util.Arrays;
 
+// SecureEnvelope 表示协议加密外层，并负责序列化/反序列化。
+
 public final class SecureEnvelope {
     private final byte version;
     private final MessageType messageType;

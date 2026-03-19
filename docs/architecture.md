@@ -7,11 +7,12 @@
 
 ## Datapath
 1. Edge reads IP packet from TUN.
-2. Resolve destination virtual IP -> peer nodeId.
-3. Send encrypted `DATA_PACKET` over UDP:
+2. Resolve destination virtual IP via runtime cache (`virtualIp -> nodeId`), learned from coordinator query responses.
+3. Control-plane lookup and punch use `targetNodeId` (never `targetVirtualIp`).
+4. Send encrypted `DATA_PACKET` over UDP:
    - preferred: direct peer endpoint.
    - fallback: coordinator relay.
-4. Receiver decrypts and writes payload back to local TUN.
+5. Receiver decrypts and writes payload back to local TUN.
 
 ## Direct/Relay State Machine
 - `INIT`: no endpoint yet.

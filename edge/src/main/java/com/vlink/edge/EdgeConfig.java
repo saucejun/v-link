@@ -1,10 +1,11 @@
 package com.vlink.edge;
 
-import com.vlink.common.protocol.IpCodec;
 import com.vlink.common.protocol.NodeId;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public final class EdgeConfig {
     private final NodeId nodeId;
@@ -14,7 +15,6 @@ public final class EdgeConfig {
     private final String bindHost;
     private final int bindPort;
     private final String psk;
-    private final int virtualIp;
     private final long heartbeatIntervalSec;
     private final String tunMode;
     private final String tunName;
@@ -26,8 +26,7 @@ public final class EdgeConfig {
     private final int probeTimeoutMs;
     private final int relayProbeIntervalMs;
     private final boolean forceRelay;
-    private final Map<NodeId, Integer> peerVirtualIps;
-    private final Map<Integer, NodeId> vipToPeer;
+    private final Set<NodeId> knownPeers;
 
     public EdgeConfig(
         NodeId nodeId,
@@ -37,7 +36,6 @@ public final class EdgeConfig {
         String bindHost,
         int bindPort,
         String psk,
-        int virtualIp,
         long heartbeatIntervalSec,
         String tunMode,
         String tunName,
@@ -49,7 +47,7 @@ public final class EdgeConfig {
         int probeTimeoutMs,
         int relayProbeIntervalMs,
         boolean forceRelay,
-        Map<NodeId, Integer> peerVirtualIps
+        Set<NodeId> knownPeers
     ) {
         this.nodeId = nodeId;
         this.nodeName = nodeName;
@@ -58,7 +56,6 @@ public final class EdgeConfig {
         this.bindHost = bindHost;
         this.bindPort = bindPort;
         this.psk = psk;
-        this.virtualIp = virtualIp;
         this.heartbeatIntervalSec = heartbeatIntervalSec;
         this.tunMode = tunMode;
         this.tunName = tunName;
@@ -70,13 +67,7 @@ public final class EdgeConfig {
         this.probeTimeoutMs = probeTimeoutMs;
         this.relayProbeIntervalMs = relayProbeIntervalMs;
         this.forceRelay = forceRelay;
-        this.peerVirtualIps = Collections.unmodifiableMap(new HashMap<NodeId, Integer>(peerVirtualIps));
-
-        Map<Integer, NodeId> reverse = new HashMap<Integer, NodeId>();
-        for (Map.Entry<NodeId, Integer> entry : peerVirtualIps.entrySet()) {
-            reverse.put(entry.getValue(), entry.getKey());
-        }
-        this.vipToPeer = Collections.unmodifiableMap(reverse);
+        this.knownPeers = Collections.unmodifiableSet(new HashSet<NodeId>(knownPeers));
     }
 
     public NodeId nodeId() {
@@ -105,10 +96,6 @@ public final class EdgeConfig {
 
     public String psk() {
         return psk;
-    }
-
-    public int virtualIp() {
-        return virtualIp;
     }
 
     public long heartbeatIntervalSec() {
@@ -155,16 +142,8 @@ public final class EdgeConfig {
         return forceRelay;
     }
 
-    public Map<NodeId, Integer> peerVirtualIps() {
-        return peerVirtualIps;
-    }
-
-    public NodeId peerByVirtualIp(int vip) {
-        return vipToPeer.get(vip);
-    }
-
-    public Integer virtualIpByPeer(NodeId peerId) {
-        return peerVirtualIps.get(peerId);
+    public Set<NodeId> knownPeers() {
+        return knownPeers;
     }
 
     public static EdgeConfig fromArgs(String[] args) {
@@ -176,7 +155,6 @@ public final class EdgeConfig {
         String bindHost = flags.getOrDefault("bind", "0.0.0.0");
         int bindPort = Integer.parseInt(flags.getOrDefault("bindPort", "41000"));
         String psk = flags.getOrDefault("psk", "change-this-psk");
-        int virtualIp = IpCodec.ipv4ToInt(flags.getOrDefault("virtualIp", "10.10.0.2"));
         long heartbeatIntervalSec = Long.parseLong(flags.getOrDefault("heartbeatSec", "5"));
 
         String tunMode = flags.getOrDefault("tunMode", "auto");
@@ -191,7 +169,7 @@ public final class EdgeConfig {
         int relayProbeIntervalMs = Integer.parseInt(flags.getOrDefault("relayProbeIntervalMs", "15000"));
         boolean forceRelay = Boolean.parseBoolean(flags.getOrDefault("forceRelay", "false"));
 
-        Map<NodeId, Integer> peers = parsePeers(flags.getOrDefault("peers", ""));
+        Set<NodeId> knownPeers = parsePeers(flags.getOrDefault("peers", ""));
 
         return new EdgeConfig(
             nodeId,
@@ -201,7 +179,6 @@ public final class EdgeConfig {
             bindHost,
             bindPort,
             psk,
-            virtualIp,
             heartbeatIntervalSec,
             tunMode,
             tunName,
@@ -213,29 +190,30 @@ public final class EdgeConfig {
             probeTimeoutMs,
             relayProbeIntervalMs,
             forceRelay,
-            peers
+            knownPeers
         );
     }
 
-    private static Map<NodeId, Integer> parsePeers(String raw) {
-        Map<NodeId, Integer> peers = new HashMap<NodeId, Integer>();
+    private static Set<NodeId> parsePeers(String raw) {
+        Set<NodeId> peers = new HashSet<NodeId>();
         if (raw == null || raw.trim().isEmpty()) {
             return peers;
         }
-
         String[] entries = raw.split(",");
         for (String entry : entries) {
             String trimmed = entry.trim();
             if (trimmed.isEmpty()) {
                 continue;
             }
-            String[] parts = trimmed.split("=");
-            if (parts.length != 2) {
+            String peerName = trimmed;
+            int idx = trimmed.indexOf('=');
+            if (idx >= 0) {
+                peerName = trimmed.substring(0, idx).trim();
+            }
+            if (peerName.isEmpty()) {
                 throw new IllegalArgumentException("Invalid --peers entry: " + trimmed);
             }
-            String peerName = parts[0].trim();
-            String peerVip = parts[1].trim();
-            peers.put(NodeId.fromStableString(peerName), IpCodec.ipv4ToInt(peerVip));
+            peers.add(NodeId.fromStableString(peerName));
         }
         return peers;
     }

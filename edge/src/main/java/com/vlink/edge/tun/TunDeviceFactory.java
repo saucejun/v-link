@@ -2,7 +2,8 @@ package com.vlink.edge.tun;
 
 import com.vlink.edge.EdgeConfig;
 import java.io.IOException;
-import java.nio.file.Paths;
+
+// TunDeviceFactory 按运行模式创建 Linux 真 TUN 或 Mock TUN。
 
 public final class TunDeviceFactory {
     private TunDeviceFactory() {
@@ -17,13 +18,7 @@ public final class TunDeviceFactory {
         if ("linux".equals(mode)) {
             return new LinuxTunDevice(config.tunName());
         }
-        if ("mock".equals(mode)) {
-            return MockTunDevice.fromFiles(
-                config.tunName(),
-                Paths.get(config.mockTunInputFile()),
-                Paths.get(config.mockTunOutputFile())
-            );
-        }
+        
         throw new IllegalArgumentException("Unsupported tun mode: " + config.tunMode());
     }
 

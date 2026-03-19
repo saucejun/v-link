@@ -6,6 +6,8 @@ import java.net.InetSocketAddress;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+// PeerSession 表示一个对端会话状态，记录路径模式和在途包信息。
+
 final class PeerSession {
     enum LinkMode {
         INIT,

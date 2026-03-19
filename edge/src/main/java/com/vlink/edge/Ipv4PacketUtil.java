@@ -1,5 +1,7 @@
 package com.vlink.edge;
 
+// Ipv4PacketUtil 提供最小 IPv4 包解析能力（当前只用到目标地址）。
+
 public final class Ipv4PacketUtil {
     private Ipv4PacketUtil() {
     }

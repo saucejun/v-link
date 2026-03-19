@@ -5,6 +5,8 @@ import com.vlink.common.protocol.MessageType;
 import com.vlink.common.protocol.NodeId;
 import io.netty.buffer.ByteBuf;
 
+// HeartbeatRequest 是边缘节点的心跳上报消息。
+
 public final class HeartbeatRequest implements ControlMessage {
     private final NodeId nodeId;
     private final long seq;

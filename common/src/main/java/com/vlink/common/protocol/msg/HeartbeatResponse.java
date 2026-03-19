@@ -4,6 +4,8 @@ import com.vlink.common.protocol.ControlMessage;
 import com.vlink.common.protocol.MessageType;
 import io.netty.buffer.ByteBuf;
 
+// HeartbeatResponse 是协调节点对心跳的确认消息。
+
 public final class HeartbeatResponse implements ControlMessage {
     public static final byte STATUS_OK = 0;
     public static final byte STATUS_UNKNOWN = 1;

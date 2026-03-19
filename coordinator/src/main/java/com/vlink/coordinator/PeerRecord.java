@@ -6,8 +6,8 @@ import java.net.InetSocketAddress;
 public final class PeerRecord {
     private final NodeId nodeId;
     private final int virtualIp;
-    private InetSocketAddress publicEndpoint;
-    private long lastSeenEpochSec;
+    private volatile InetSocketAddress publicEndpoint;
+    private volatile long lastSeenEpochSec;
 
     public PeerRecord(NodeId nodeId, int virtualIp, InetSocketAddress publicEndpoint, long lastSeenEpochSec) {
         this.nodeId = nodeId;

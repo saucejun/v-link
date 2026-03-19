@@ -78,6 +78,8 @@ BIND=0.0.0.0
 PORT=40000
 PEER_TIMEOUT_SEC=30
 CLEANUP_INTERVAL_SEC=5
+VIP_POOL_START=172.10.0.2
+VIP_POOL_END=172.10.0.254
 EOF
 
 ./scripts/linux/run_coordinator.sh ./coordinator.env
@@ -109,12 +111,12 @@ Log keywords:
 ### 5.1 Setup TUN
 Edge-A:
 ```bash
-sudo ./scripts/linux/setup_tun.sh vlink0 10.10.0.2/24 1400 10.10.0.0/24 <edge_user>
+sudo ./scripts/linux/setup_tun.sh vlink0 10.10.0.2/24 1400 172.10.0.0/24 <edge_user>
 ```
 
 Edge-B:
 ```bash
-sudo ./scripts/linux/setup_tun.sh vlink0 10.10.0.3/24 1400 10.10.0.0/24 <edge_user>
+sudo ./scripts/linux/setup_tun.sh vlink0 10.10.0.3/24 1400 172.10.0.0/24 <edge_user>
 ```
 
 `<edge_user>` optional. If edge runs non-root, set this so TUN is created with matching owner.
@@ -131,13 +133,12 @@ cat > edge-a.env <<'EOF'
 NODE_ID=edge-a
 BIND=0.0.0.0
 BIND_PORT=41001
-VIRTUAL_IP=10.10.0.2
 COORDINATOR_HOST=<COORD_PUBLIC_IP>
 COORDINATOR_PORT=40000
 PSK=demo-psk
 TUN_MODE=linux
 TUN_NAME=vlink0
-PEERS=edge-b=10.10.0.3
+PEERS=edge-b
 FORCE_RELAY=false
 EOF
 ./scripts/linux/run_edge.sh ./edge-a.env
@@ -149,17 +150,20 @@ cat > edge-b.env <<'EOF'
 NODE_ID=edge-b
 BIND=0.0.0.0
 BIND_PORT=41002
-VIRTUAL_IP=10.10.0.3
 COORDINATOR_HOST=<COORD_PUBLIC_IP>
 COORDINATOR_PORT=40000
 PSK=demo-psk
 TUN_MODE=linux
 TUN_NAME=vlink0
-PEERS=edge-a=10.10.0.2
+PEERS=edge-a
 FORCE_RELAY=false
 EOF
 ./scripts/linux/run_edge.sh ./edge-b.env
 ```
+
+Notes:
+- Edge no longer accepts `VIRTUAL_IP`; coordinator assigns it during register.
+- Keep edge startup order stable if you rely on deterministic sequential VIP allocation from the pool.
 
 ## 6. Validation (DIRECT + RELAY)
 ### 6.1 Ping overlay
@@ -175,6 +179,7 @@ ping -c 4 10.10.0.2
 
 ### 6.2 DIRECT mode evidence
 Expected edge logs:
+- `[edge] register status=OK assignedVip=...`
 - `[edge] path switch -> DIRECT ...`
 - `[edge] TX DIRECT seq=...`
 

@@ -12,6 +12,8 @@ import com.vlink.common.protocol.msg.RegisterResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+// PacketCodec 负责按 MessageType 编解码具体消息体。
+
 public final class PacketCodec {
     private PacketCodec() {
     }

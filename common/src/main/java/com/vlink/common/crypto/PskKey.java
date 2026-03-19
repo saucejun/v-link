@@ -5,6 +5,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
+// PskKey 负责把命令行 PSK 派生为固定长度的 AES 密钥。
+
 public final class PskKey {
     private PskKey() {
     }

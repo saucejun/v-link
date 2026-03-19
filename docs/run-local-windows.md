@@ -15,3 +15,7 @@ This starts:
 - edge-b on `127.0.0.1:41002`
 
 Both edges use `MockTunDevice` with files in `.\tmp`.
+
+Behavior:
+- Edge does not require `--virtualIp`; coordinator assigns virtual IP after register.
+- Peer lookup requests use `targetNodeId`.

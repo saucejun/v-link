@@ -1,5 +1,7 @@
 package com.vlink.common.protocol;
 
+// MessageType 定义控制面与数据面消息类型编号。
+
 public enum MessageType {
     REGISTER_REQ((byte) 1),
     REGISTER_RESP((byte) 2),

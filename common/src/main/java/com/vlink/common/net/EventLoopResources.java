@@ -8,6 +8,9 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 
+// EventLoopResources 负责统一选择 Netty UDP 实现：
+// Linux + epoll 可用时使用 epoll，否则自动回退到 NIO。
+// EventLoopResources 统一选择 epoll 或 nio 并提供对应的 Netty 资源。
 public final class EventLoopResources {
     private final EventLoopGroup eventLoopGroup;
     private final Class<? extends DatagramChannel> channelClass;

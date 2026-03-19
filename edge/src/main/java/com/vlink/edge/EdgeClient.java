@@ -30,21 +30,28 @@ import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class EdgeClient {
     private static final int RETRANSMIT_TICK_MS = 200;
+    private static final long VIP_RESOLVE_THROTTLE_MS = 1000;
 
     private final EdgeConfig config;
     private final EventLoopResources eventLoopResources;
     private final AtomicLong heartbeatSeq;
     private final InetSocketAddress coordinatorAddress;
     private final Map<NodeId, PeerSession> sessions;
+    private final Map<Integer, NodeId> peerByVirtualIp;
+    private final Map<NodeId, Integer> virtualIpByPeer;
+    private final Map<Integer, Long> vipResolveRequestedAtMs;
     private final DedupCache dedupCache;
 
     private volatile boolean running;
+    private volatile int assignedVirtualIp;
     private Channel channel;
     private TunDevice tunDevice;
     private Thread tunReaderThread;
@@ -55,7 +62,11 @@ public final class EdgeClient {
         this.heartbeatSeq = new AtomicLong(1);
         this.coordinatorAddress = new InetSocketAddress(config.coordinatorHost(), config.coordinatorPort());
         this.sessions = new HashMap<NodeId, PeerSession>();
+        this.peerByVirtualIp = new HashMap<Integer, NodeId>();
+        this.virtualIpByPeer = new HashMap<NodeId, Integer>();
+        this.vipResolveRequestedAtMs = new HashMap<Integer, Long>();
         this.dedupCache = new DedupCache();
+        this.assignedVirtualIp = 0;
     }
 
     public void start() throws Exception {
@@ -75,8 +86,8 @@ public final class EdgeClient {
         ChannelFuture bound = bootstrap.bind(config.bindHost(), config.bindPort()).sync();
         this.channel = bound.channel();
 
-        for (Map.Entry<NodeId, Integer> entry : config.peerVirtualIps().entrySet()) {
-            sessions.put(entry.getKey(), new PeerSession(entry.getKey(), entry.getValue(), config.forceRelay()));
+        for (NodeId knownPeer : config.knownPeers()) {
+            sessions.put(knownPeer, new PeerSession(knownPeer, 0, config.forceRelay()));
         }
 
         System.out.println("[edge] started node=" + config.nodeName()
@@ -85,7 +96,7 @@ public final class EdgeClient {
             + " io=" + (eventLoopResources.epollEnabled() ? "epoll" : "nio")
             + " forceRelay=" + config.forceRelay());
 
-        sendToCoordinator(new RegisterRequest(config.nodeId(), config.virtualIp(), config.bindPort()));
+        sendToCoordinator(new RegisterRequest(config.nodeId(), config.bindPort()));
         scheduleHeartbeat();
         scheduleStateTick();
         startTunReader();
@@ -174,9 +185,14 @@ public final class EdgeClient {
         if (!Ipv4PacketUtil.isIpv4(packet)) {
             return;
         }
+        if (assignedVirtualIp == 0) {
+            return;
+        }
+
         int dstVip = Ipv4PacketUtil.destinationIp(packet);
-        NodeId targetPeer = config.peerByVirtualIp(dstVip);
+        NodeId targetPeer = peerByVirtualIp.get(dstVip);
         if (targetPeer == null) {
+            requestVipResolve(dstVip, System.currentTimeMillis());
             return;
         }
 
@@ -189,14 +205,62 @@ public final class EdgeClient {
         trySendNext(session, System.currentTimeMillis());
     }
 
+    private void requestVipResolve(int dstVip, long nowMs) {
+        Long last = vipResolveRequestedAtMs.get(dstVip);
+        if (last != null && nowMs - last.longValue() < VIP_RESOLVE_THROTTLE_MS) {
+            return;
+        }
+        vipResolveRequestedAtMs.put(dstVip, nowMs);
+
+        Set<NodeId> candidates = new HashSet<NodeId>();
+        candidates.addAll(config.knownPeers());
+        candidates.addAll(sessions.keySet());
+        candidates.addAll(virtualIpByPeer.keySet());
+
+        if (candidates.isEmpty()) {
+            System.err.println("[edge] no known peers to resolve destination vip=" + IpCodec.intToIpv4(dstVip));
+            return;
+        }
+
+        for (NodeId targetNodeId : candidates) {
+            sendToCoordinator(new QueryPeerRequest(config.nodeId(), targetNodeId));
+        }
+    }
+
     private PeerSession sessionFor(NodeId peerId, int peerVirtualIp) {
         PeerSession session = sessions.get(peerId);
         if (session == null) {
             session = new PeerSession(peerId, peerVirtualIp, config.forceRelay());
             sessions.put(peerId, session);
         }
-        session.peerVirtualIp = peerVirtualIp;
+        if (peerVirtualIp > 0) {
+            cachePeerVirtualIp(peerId, peerVirtualIp);
+        }
         return session;
+    }
+
+    private void cachePeerVirtualIp(NodeId peerId, int peerVirtualIp) {
+        if (peerVirtualIp <= 0) {
+            return;
+        }
+        Integer previousVip = virtualIpByPeer.put(peerId, peerVirtualIp);
+        if (previousVip != null && previousVip.intValue() != peerVirtualIp) {
+            peerByVirtualIp.remove(previousVip, peerId);
+        }
+
+        NodeId previousPeer = peerByVirtualIp.put(peerVirtualIp, peerId);
+        if (previousPeer != null && !previousPeer.equals(peerId)) {
+            virtualIpByPeer.remove(previousPeer, peerVirtualIp);
+            System.err.println("[edge] vip mapping replaced vip=" + IpCodec.intToIpv4(peerVirtualIp)
+                + " oldPeer=" + previousPeer.shortText()
+                + " newPeer=" + peerId.shortText());
+        }
+
+        vipResolveRequestedAtMs.remove(peerVirtualIp);
+        PeerSession session = sessions.get(peerId);
+        if (session != null) {
+            session.peerVirtualIp = peerVirtualIp;
+        }
     }
 
     private void beginProbe(PeerSession session, boolean strictMode, long nowMs) {
@@ -227,13 +291,13 @@ public final class EdgeClient {
     }
 
     private void sendProbe(PeerSession session, long nowMs) {
-        if (!session.hasEndpoint()) {
+        if (assignedVirtualIp == 0 || !session.hasEndpoint()) {
             return;
         }
         DataPacket probe = new DataPacket(
             config.nodeId(),
             session.peerId,
-            config.virtualIp(),
+            assignedVirtualIp,
             session.peerVirtualIp,
             0,
             0,
@@ -298,7 +362,7 @@ public final class EdgeClient {
             );
             session.inflight = new PeerSession.Inflight(relayFrame, true, nowMs);
             sendRelay(relayFrame);
-            System.out.println("[edge] TX RELAY seq=" + relayFrame.seq() + " dst=" + IpCodec.intToIpv4(relayFrame.dstVirtualIp()));
+            System.out.println("[edge] TX RELAY seq=" + relayFrame.seq() + " dstNode=" + relayFrame.dstNodeId().shortText());
             return;
         }
 
@@ -336,6 +400,10 @@ public final class EdgeClient {
         if (session.inflight != null || session.outboundQueue.isEmpty()) {
             return;
         }
+        if (assignedVirtualIp == 0 || session.peerVirtualIp == 0) {
+            beginProbe(session, true, nowMs);
+            return;
+        }
 
         boolean viaRelay;
         if (config.forceRelay()) {
@@ -358,7 +426,7 @@ public final class EdgeClient {
         DataPacket frame = new DataPacket(
             config.nodeId(),
             session.peerId,
-            config.virtualIp(),
+            assignedVirtualIp,
             session.peerVirtualIp,
             seq,
             0,
@@ -370,18 +438,22 @@ public final class EdgeClient {
 
         if (viaRelay) {
             sendRelay(frame);
-            System.out.println("[edge] TX RELAY seq=" + seq + " dst=" + IpCodec.intToIpv4(session.peerVirtualIp));
+            System.out.println("[edge] TX RELAY seq=" + seq + " dstNode=" + session.peerId.shortText());
         } else {
             sendDirect(frame, session.publicEndpoint);
-            System.out.println("[edge] TX DIRECT seq=" + seq + " dst=" + IpCodec.intToIpv4(session.peerVirtualIp));
+            System.out.println("[edge] TX DIRECT seq=" + seq + " dstNode=" + session.peerId.shortText());
         }
     }
 
     private void onQueryPeerResponse(QueryPeerResponse response, long nowMs) {
         if (response.status() != QueryPeerResponse.STATUS_OK) {
+            System.err.println("[edge] query target=" + response.targetNodeId().shortText()
+                + " status=" + queryStatusText(response.status()));
             return;
         }
-        PeerSession session = sessionFor(response.targetId(), response.virtualIp());
+
+        cachePeerVirtualIp(response.targetNodeId(), response.targetVirtualIp());
+        PeerSession session = sessionFor(response.targetNodeId(), response.targetVirtualIp());
         session.publicEndpoint = new InetSocketAddress(IpCodec.intToInetAddress(response.publicIp()), response.publicPort());
 
         if (!config.forceRelay()) {
@@ -399,6 +471,7 @@ public final class EdgeClient {
     }
 
     private void onPunchNotify(PunchNotify notify, long nowMs) {
+        cachePeerVirtualIp(notify.peerNodeId(), notify.peerVirtualIp());
         PeerSession session = sessionFor(notify.peerNodeId(), notify.peerVirtualIp());
         session.publicEndpoint = new InetSocketAddress(IpCodec.intToInetAddress(notify.peerPublicIp()), notify.peerPublicPort());
 
@@ -414,10 +487,13 @@ public final class EdgeClient {
     }
 
     private void onDataPacket(InetSocketAddress sender, DataPacket packet, long nowMs) {
-        if (packet.dstNodeId().equals(config.nodeId()) == false && packet.dstVirtualIp() != config.virtualIp()) {
+        boolean dstNodeMatched = packet.dstNodeId().equals(config.nodeId());
+        boolean dstVipMatched = assignedVirtualIp != 0 && packet.dstVirtualIp() == assignedVirtualIp;
+        if (!dstNodeMatched && !dstVipMatched) {
             return;
         }
 
+        cachePeerVirtualIp(packet.srcNodeId(), packet.srcVirtualIp());
         PeerSession session = sessionFor(packet.srcNodeId(), packet.srcVirtualIp());
 
         if (!packet.isRelay()) {
@@ -468,6 +544,9 @@ public final class EdgeClient {
     }
 
     private void sendAck(PeerSession session, int ackSeq, boolean viaRelay, InetSocketAddress directTarget) {
+        if (assignedVirtualIp == 0) {
+            return;
+        }
         byte flags = DataPacket.FLAG_ACK;
         if (viaRelay) {
             flags |= DataPacket.FLAG_RELAY;
@@ -475,7 +554,7 @@ public final class EdgeClient {
         DataPacket ack = new DataPacket(
             config.nodeId(),
             session.peerId,
-            config.virtualIp(),
+            assignedVirtualIp,
             session.peerVirtualIp,
             0,
             ackSeq,
@@ -537,10 +616,7 @@ public final class EdgeClient {
                 InetSocketAddress sender = datagram.sender();
 
                 if (inbound instanceof RegisterResponse) {
-                    RegisterResponse response = (RegisterResponse) inbound;
-                    System.out.println("[edge] register status=" + response.status()
-                        + " assignedVip=" + IpCodec.intToIpv4(response.assignedVirtualIp())
-                        + " ttl=" + response.ttlSec() + "s");
+                    onRegisterResponse((RegisterResponse) inbound);
                 } else if (inbound instanceof HeartbeatResponse) {
                     HeartbeatResponse response = (HeartbeatResponse) inbound;
                     System.out.println("[edge] heartbeat ack seq=" + response.seqEcho() + " status=" + response.status());
@@ -557,5 +633,41 @@ public final class EdgeClient {
                 datagram.release();
             }
         }
+    }
+
+    private void onRegisterResponse(RegisterResponse response) {
+        if (response.status() == RegisterResponse.STATUS_OK) {
+            assignedVirtualIp = response.assignedVirtualIp();
+            System.out.println("[edge] register status=OK assignedVip=" + IpCodec.intToIpv4(assignedVirtualIp)
+                + " ttl=" + response.ttlSec() + "s");
+            return;
+        }
+        System.err.println("[edge] register failed status=" + registerStatusText(response.status()));
+    }
+
+    private String registerStatusText(byte status) {
+        if (status == RegisterResponse.STATUS_DENIED) {
+            return "DENIED";
+        }
+        if (status == RegisterResponse.STATUS_DUPLICATE_NODE_ID) {
+            return "DUPLICATE_NODE_ID";
+        }
+        if (status == RegisterResponse.STATUS_IP_ALLOCATION_CONFLICT) {
+            return "IP_ALLOCATION_CONFLICT";
+        }
+        return "UNKNOWN(" + status + ")";
+    }
+
+    private String queryStatusText(byte status) {
+        if (status == QueryPeerResponse.STATUS_NOT_FOUND) {
+            return "NODE_ID_NOT_FOUND";
+        }
+        if (status == QueryPeerResponse.STATUS_OFFLINE) {
+            return "TARGET_OFFLINE";
+        }
+        if (status == QueryPeerResponse.STATUS_MAPPING_INVALID) {
+            return "MAPPING_INVALID";
+        }
+        return "UNKNOWN(" + status + ")";
     }
 }

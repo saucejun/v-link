@@ -1,4 +1,4 @@
-# v-link Protocol Spec (M2/M3)
+# v-link Protocol Spec
 
 Transport: UDP + encrypted envelope (`AES-128-GCM`, PSK from CLI).
 
@@ -33,7 +33,41 @@ AAD: `magic+version+messageType+senderNodeId+timestampSec+nonceLen+nonce`.
 | PUNCH_NOTIFY | 8 |
 | DATA_PACKET | 9 |
 
-## New M2/M3 Payloads
+## Payloads
+### REGISTER_REQ
+- nodeId(16)
+- listenPort(2)
+
+### REGISTER_RESP
+- status(1)
+- assignedVirtualIpV4(4)
+- ttlSec(2)
+
+Register status:
+- `0`: OK
+- `1`: DENIED
+- `2`: DUPLICATE_NODE_ID
+- `3`: IP_ALLOCATION_CONFLICT
+
+### QUERY_PEER_REQ
+- requesterNodeId(16)
+- targetNodeId(16)
+
+### QUERY_PEER_RESP
+- status(1)
+- targetNodeId(16)
+- targetPublicIpV4(4)
+- targetPublicPort(2)
+- targetVirtualIpV4(4)
+- lastSeenEpochSec(4)
+- relayRequired(1)
+
+Query status:
+- `0`: OK
+- `1`: TARGET_NODE_NOT_FOUND
+- `2`: TARGET_OFFLINE
+- `3`: TARGET_MAPPING_INVALID
+
 ### PUNCH_REQUEST
 - requesterNodeId(16)
 - targetNodeId(16)

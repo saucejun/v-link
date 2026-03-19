@@ -1,5 +1,7 @@
 package com.vlink.common.protocol;
 
+// CryptoSuite 定义协议支持的加密套件枚举。
+
 public enum CryptoSuite {
     AES_128_GCM((byte) 1);
 

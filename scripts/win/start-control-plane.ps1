@@ -24,8 +24,8 @@ if (-not (Test-Path ".\\tmp\\edge-a-in.bin")) { New-Item -ItemType File -Path ".
 if (-not (Test-Path ".\\tmp\\edge-b-in.bin")) { New-Item -ItemType File -Path ".\\tmp\\edge-b-in.bin" | Out-Null }
 
 $coordinatorArgs = "--bind 127.0.0.1 --port $CoordinatorPort --psk $Psk"
-$edgeAArgs = "--id edge-a --bind 127.0.0.1 --bindPort $EdgeAPort --coordinatorHost 127.0.0.1 --coordinatorPort $CoordinatorPort --virtualIp 10.10.0.2 --psk $Psk --tunMode mock --tunName mock-a --mockTunIn .\\tmp\\edge-a-in.bin --mockTunOut .\\tmp\\edge-a-out.bin --peers edge-b=10.10.0.3"
-$edgeBArgs = "--id edge-b --bind 127.0.0.1 --bindPort $EdgeBPort --coordinatorHost 127.0.0.1 --coordinatorPort $CoordinatorPort --virtualIp 10.10.0.3 --psk $Psk --tunMode mock --tunName mock-b --mockTunIn .\\tmp\\edge-b-in.bin --mockTunOut .\\tmp\\edge-b-out.bin --peers edge-a=10.10.0.2"
+$edgeAArgs = "--id edge-a --bind 127.0.0.1 --bindPort $EdgeAPort --coordinatorHost 127.0.0.1 --coordinatorPort $CoordinatorPort --psk $Psk --tunMode mock --tunName mock-a --mockTunIn .\\tmp\\edge-a-in.bin --mockTunOut .\\tmp\\edge-a-out.bin --peers edge-b"
+$edgeBArgs = "--id edge-b --bind 127.0.0.1 --bindPort $EdgeBPort --coordinatorHost 127.0.0.1 --coordinatorPort $CoordinatorPort --psk $Psk --tunMode mock --tunName mock-b --mockTunIn .\\tmp\\edge-b-in.bin --mockTunOut .\\tmp\\edge-b-out.bin --peers edge-a"
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "$gradleCmd :coordinator:run --args=\"$coordinatorArgs\""
 Start-Sleep -Seconds 1

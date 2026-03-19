@@ -3,6 +3,8 @@ package com.vlink.common.protocol;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+// IpCodec 提供 IPv4 字符串、整数与 InetAddress 之间的转换。
+
 public final class IpCodec {
     private IpCodec() {
     }

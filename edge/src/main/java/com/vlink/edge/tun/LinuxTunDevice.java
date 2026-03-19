@@ -10,7 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class LinuxTunDevice implements TunDevice {
+// LinuxTunDevice 通过 JNA 调用 /dev/net/tun 完成真实 TUN 读写。
+
+public final class LinuxTunDevice implements TunDevice {    
     private static final int O_RDWR = 0x0002;
     private static final int IFF_TUN = 0x0001;
     private static final int IFF_NO_PI = 0x1000;
@@ -20,7 +22,7 @@ public final class LinuxTunDevice implements TunDevice {
     private final String name;
     private final AtomicBoolean closed;
 
-    public LinuxTunDevice(String preferredName) throws IOException {
+    public LinuxTunDevice(String preferredName) throws IOException {    // 打开 /dev/net/tun，配置 TUN 设备并获取分配的设备名。
         this.closed = new AtomicBoolean(false);
         int openedFd = NativeLibC.INSTANCE.open("/dev/net/tun", O_RDWR);
         if (openedFd < 0) {
@@ -31,10 +33,10 @@ public final class LinuxTunDevice implements TunDevice {
         byte[] rawName = preferredName.getBytes(StandardCharsets.US_ASCII);
         int copyLen = Math.min(rawName.length, ifReq.ifr_name.length - 1);
         System.arraycopy(rawName, 0, ifReq.ifr_name, 0, copyLen);
-        ifReq.ifr_flags = (short) (IFF_TUN | IFF_NO_PI);
+        ifReq.ifr_flags = (short) (IFF_TUN | IFF_NO_PI);    
         ifReq.write();
 
-        int rc = NativeLibC.INSTANCE.ioctl(openedFd, TUNSETIFF, ifReq.getPointer());
+        int rc = NativeLibC.INSTANCE.ioctl(openedFd, TUNSETIFF, ifReq.getPointer());    
         if (rc < 0) {
             NativeLibC.INSTANCE.close(openedFd);
             throw ioError("ioctl(TUNSETIFF)");

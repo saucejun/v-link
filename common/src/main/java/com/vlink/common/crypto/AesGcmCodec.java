@@ -5,6 +5,8 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+// AesGcmCodec 封装 AES-GCM 加解密，包含 AAD 与认证标签校验。
+
 public final class AesGcmCodec {
     private static final int TAG_BITS = 128;
 

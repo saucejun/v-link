@@ -4,9 +4,13 @@ import com.vlink.common.protocol.ControlMessage;
 import com.vlink.common.protocol.MessageType;
 import io.netty.buffer.ByteBuf;
 
+// RegisterResponse 是协调节点返回的注册结果消息。
+
 public final class RegisterResponse implements ControlMessage {
     public static final byte STATUS_OK = 0;
     public static final byte STATUS_DENIED = 1;
+    public static final byte STATUS_DUPLICATE_NODE_ID = 2;
+    public static final byte STATUS_IP_ALLOCATION_CONFLICT = 3;
 
     private final byte status;
     private final int assignedVirtualIp;
@@ -49,4 +53,3 @@ public final class RegisterResponse implements ControlMessage {
         return new RegisterResponse(status, assignedVirtualIp, ttlSec);
     }
 }
-
